@@ -1,0 +1,33 @@
+{
+    "listen": "127.0.0.1:53",
+    "domains": [
+	{
+	    "domain": "minnecker.com",
+	    "records": [
+		{
+		    "type": "a",
+		    "content": "127.0.0.1"
+		},
+		{
+		    "type": "a",
+		    "subdomain": "www",
+		    "content": "127.0.0.1"
+		},
+		{
+		    "type": "mx",
+		    "content": "127.0.0.1"
+		}
+	    ]
+	},
+	{
+	    "domain": "flo.guru",
+	    "records": [
+		{
+		    "type": "mx",
+		    "content": "127.0.0.1"
+		}
+	    ]
+	}
+    ]
+}
+
