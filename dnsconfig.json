@@ -1,5 +1,7 @@
 {
     "listen": "127.0.0.1:53",
+    "ttl": "5m",
+    "cachepurge": "30s",
     "domains": [
 	{
 	    "domain": "minnecker.com",

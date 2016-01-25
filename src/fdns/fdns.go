@@ -1,5 +1,5 @@
 // Copyright 2015 Florian Minnecker. All rights reserved.
-// adapted from https://github.com/miekg/exdns/blob/master/reflect/reflect.go
+// some portions of this software are adapted from https://github.com/miekg/exdns/blob/master/reflect/reflect.go
 
 package main
 
@@ -8,27 +8,33 @@ import (
 	"flag"
 	"fmt"
 	"github.com/miekg/dns"
+	"github.com/patrickmn/go-cache"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var (
-	tsig *string
+	tsig   *string
+	driver *cache.Cache
 )
 
 type Conf struct {
-	Domains []Domain `json:"domains"`
-	Listen  string   `json:"listen"`
+	Domains []Domain      `json:"domains"`
+	Listen  string        `json:"listen"`
+	TTL     time.Duration `json:"ttl"`
+	Purge   time.Duration `json:"cachepurge"`
 }
 
 type Domain struct {
 	Domain  string `json:"domain"`
 	Records []struct {
 		Content   string `json:"content"`
+		IP        net.IP `json:"ip"`
 		Subdomain string `json:"subdomain"`
 		Type      string `json:"type"`
 	} `json:"records"`
@@ -118,14 +124,14 @@ func (dom Domain) addHandler() {
 		for _, record := range dom.Records {
 			fmt.Printf("Adding %s -> %s.%s\n", record.Type, record.Subdomain, dom.Records)
 
-			switch record.Type {
-			case "a":
-				m.Answer = append(m.Answer, NewA(record.Subdomain+dom.Domain, record.Content))
-			case "aaaa":
-				m.Answer = append(m.Answer, NewAAAA(record.Subdomain+dom.Domain, record.Content))
-			case "txt":
-				m.Answer = append(m.Answer, NewTXT(record.Subdomain+dom.Domain, record.Content))
-			}
+			//switch record.Type {
+			//case "a":
+			//	m.Answer = append(m.Answer, NewA(record.Subdomain+dom.Domain, record.Content, 10))
+			//case "aaaa":
+			//	m.Answer = append(m.Answer, NewAAAA(record.Subdomain+dom.Domain, record.Content, 10))
+			//case "txt":
+			//	m.Answer = append(m.Answer, NewTXT(record.Subdomain+dom.Domain, record.Content, 10))
+			//}
 		}
 
 		//fmt.Printf("** Handling questions for: %s\n", dns.HashToString(dom.Domain))
@@ -154,6 +160,9 @@ func main() {
 	confBytes, _ := ioutil.ReadFile("dnsconfig.json")
 	conf := Conf{}
 	json.Unmarshal(confBytes, &conf)
+
+	// initialize the cache with the configurated options..
+	cache.New(conf.TTL*time.Second, conf.Purge*time.Second)
 
 	// Handle domain names
 	for _, dom := range conf.Domains {
