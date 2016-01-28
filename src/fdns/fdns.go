@@ -1,4 +1,4 @@
-// Copyright 2015 Florian Minnecker. All rights reserved.
+// Copyright 2016 Florian Minnecker. All rights reserved.
 // some portions of this software are adapted from https://github.com/miekg/exdns/blob/master/reflect/reflect.go
 
 package main
@@ -31,13 +31,21 @@ type Conf struct {
 }
 
 type Domain struct {
-	Domain  string `json:"domain"`
-	Records []struct {
-		Content   string `json:"content"`
-		IP        net.IP `json:"ip"`
-		Subdomain string `json:"subdomain"`
-		Type      string `json:"type"`
-	} `json:"records"`
+	Name    string   `json:"name"`
+	A       A        `json:"a"`
+	Mx      MX       `json:"mx"`
+	Domains []Domain `json:"domains"`
+}
+
+type A struct {
+	Ip  net.IP        `json:"ip"`
+	Ttl time.Duration `json:"ttl"`
+}
+
+type MX struct {
+	Content  string        `json:"content"`
+	Priority uint16        `json:"priority"`
+	Ttl      time.Duration `json:"ttl"`
 }
 
 // New... methods adapted from https://github.com/skynetservices/skydns/blob/master/msg/service.go
@@ -112,34 +120,44 @@ func serve(net, name, secret string) {
 	}
 }
 
-func (dom Domain) addHandler() {
-	fmt.Printf("Adding Domain: %s\n", dom.Domain)
-	dns.HandleFunc(dom.Domain, func(w dns.ResponseWriter, req *dns.Msg) {
-		m := new(dns.Msg)
-		m.SetReply(req)
-		m.Compress = true
+func (dom Domain) addHandler(tld string) {
+	fqdn := dom.Name
+	if tld != "" {
+		fqdn = dom.Name + "." + tld
+	}
 
-		fmt.Printf("Requested: %s\n\n", req.Question[0].Qtype)
+	FqdnParts, _ := dns.IsDomainName(fqdn)
 
-		for _, record := range dom.Records {
-			fmt.Printf("Adding %s -> %s.%s\n", record.Type, record.Subdomain, dom.Records)
+	fmt.Printf("Adding: %v - %v nums\n", fqdn, FqdnParts)
 
-			//switch record.Type {
-			//case "a":
-			//	m.Answer = append(m.Answer, NewA(record.Subdomain+dom.Domain, record.Content, 10))
-			//case "aaaa":
-			//	m.Answer = append(m.Answer, NewAAAA(record.Subdomain+dom.Domain, record.Content, 10))
-			//case "txt":
-			//	m.Answer = append(m.Answer, NewTXT(record.Subdomain+dom.Domain, record.Content, 10))
-			//}
-		}
+	// Handle dns requests if it is really a fqdn
+	if dns.IsFqdn(fqdn) {
+		dns.HandleFunc(fqdn, func(w dns.ResponseWriter, req *dns.Msg) {
+			m := new(dns.Msg)
+			m.SetReply(req)
+			m.Compress = true
 
-		//fmt.Printf("** Handling questions for: %s\n", dns.HashToString(dom.Domain))
-		fmt.Printf("** Got a Question for name: %s\n", m.Question[0].Name)
+			for i, q := range req.Question {
+				fmt.Printf("Requested: %s, Type: %v\n", req.Question[i].Name, req.Question[i].Qtype)
 
-		w.WriteMsg(m)
-	})
+				switch q.Qtype {
+				case 1:
+					fmt.Printf("Adding a record %v with ip %v", q.Name, dom.A.Ip)
+					m.Answer = append(m.Answer, NewA(q.Name, dom.A.Ip, uint32(dom.A.Ttl)))
+				case 15:
+					fmt.Printf("Adding a record %v with ip %v", q.Name, dom.A.Ip)
+					m.Answer = append(m.Answer, NewMX(q.Name, dom.Mx.Content, dom.Mx.Priority, uint32(dom.Mx.Ttl)))
+				}
+			}
 
+			w.WriteMsg(m)
+		})
+	}
+
+	// add subdomains..
+	for _, d := range dom.Domains {
+		d.addHandler(fqdn)
+	}
 }
 
 func main() {
@@ -161,12 +179,14 @@ func main() {
 	conf := Conf{}
 	json.Unmarshal(confBytes, &conf)
 
+	fmt.Printf("json unmasheld: \n%v\n\n\n", conf)
+
 	// initialize the cache with the configurated options..
 	cache.New(conf.TTL*time.Second, conf.Purge*time.Second)
 
 	// Handle domain names
 	for _, dom := range conf.Domains {
-		dom.addHandler()
+		dom.addHandler("")
 	}
 
 	// Start listening...

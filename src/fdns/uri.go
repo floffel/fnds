@@ -1,6 +1,6 @@
 package main
 
-import "net"
+//import "net"
 
 //todo
 type URI struct {

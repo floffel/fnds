@@ -3,33 +3,42 @@
     "ttl": "5m",
     "cachepurge": "30s",
     "domains": [
-	{
-	    "domain": "minnecker.com",
-	    "records": [
-		{
-		    "type": "a",
-		    "content": "127.0.0.1"
-		},
-		{
-		    "type": "a",
-		    "subdomain": "www",
-		    "content": "127.0.0.1"
-		},
-		{
-		    "type": "mx",
-		    "content": "127.0.0.1"
-		}
+	  {
+	    "name": "com",
+	    "domains": [
+		  {
+		    "name": "minnecker",
+		    "a": {
+			"ip": "127.0.0.1",
+			"ttl": "10s"
+		    }
+		  },
+		  {
+		    "name": "gamers-eyes",
+		    "a": {
+			"ip": "127.0.0.1",
+			"ttl": "20s"
+		    },
+		    "mx": {
+			  "content": "mx.minnecker.com",
+			  "priority": 10,
+			  "ttl": "30s"
+		    }
+		  }
+	    ] 
+	  },
+	  {
+	    "name": "guru",
+	    "domains": [
+		  {
+		    "name": "flori",
+		    "a": {
+			"ip": "127.1.1.1",
+			"ttl": "20s"
+		    }
+		  }
 	    ]
-	},
-	{
-	    "domain": "flo.guru",
-	    "records": [
-		{
-		    "type": "mx",
-		    "content": "127.0.0.1"
-		}
-	    ]
-	}
+	  }
     ]
 }
 
